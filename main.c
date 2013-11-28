@@ -633,61 +633,7 @@ int main(void) {
 
 
 
-//		int nread = read_from_I2C(ADXL345_ADDR, ADXL345_X_ADDR,buffer,6);
-//		if(nread==6){
-//			x = (int)buffer[1] | ((int)buffer[0] << 8);
-//			y = ( (int)buffer[3] | ((int)buffer[2] << 8) ) * -1;
-//			z = ( (int)buffer[5] | ((int)buffer[4] << 8) ) * -1;
-//			UARTSend(buffer, 6);
-//		}
-
-//		read_from_I2C(ITG3205_ADDR, ITG3205_X_ADDR, buffer, 6);
-//			x = (int)buffer[1] | ((int)buffer[0] << 8);
-//			y = ( (int)buffer[3] | ((int)buffer[2] << 8) ) * -1;
-//			z = ( (int)buffer[5] | ((int)buffer[4] << 8) ) * -1;
-
-//		write_to_I2C(I2C_ID_HMC5883L, HMC5883L_RA_MODE, HMC5883L_MODE_SINGLE);
-//		ROM_SysCtlDelay(6*(ROM_SysCtlClockGet()/3000));
-//		read_from_I2C(I2C_ID_HMC5883L, HMC5883L_DATA, buffer,6);
-//		x = ((int16_t)(((uint16_t)buffer[0]<<8) | (uint16_t)buffer[1]));
-//		y = ((int16_t)(((uint16_t)buffer[2]<<8) | (uint16_t)buffer[3]));
-//		z = ((int16_t)(((uint16_t)buffer[4]<<8) | (uint16_t)buffer[5]));
-
-			//UARTSend(buffer, 6);
-//	write_to_I2C(I2C_ID_HMC5883L, HMC5883L_RA_MODE, HMC5883L_MODE_SINGLE);
-//	SysCtlDelay(6*(SysCtlClockGet()/3000));
-//		read_from_I2C(I2C_ID_HMC5883L, HMC5883L_DATA, buffer,6);
-//		x = ((int16_t)(((uint16_t)buffer[0]<<8) | (uint16_t)buffer[1]));
-//		y = ((int16_t)(((uint16_t)buffer[2]<<8) | (uint16_t)buffer[3]));
-//		z = ((int16_t)(((uint16_t)buffer[4]<<8) | (uint16_t)buffer[5]));
-//		ROM_SysCtlDelay(6*(ROM_SysCtlClockGet()/3000));
 //
-		//UARTSend((unsigned char *)"Radio data:\n\r", 12);
-//		if(done)
-//		{
-//			for(i = 0; i< 3;i++){
-//				sprintf(data,"%d\n\r", x);
-//				SysCtlDelay(10000);
-//				UARTSend(signal+i*10,10);
-//				SysCtlDelay(SysCtlClockGet()/1000);
-//			}
-//			done=0;
-//		}
-//		unsigned char data[6],data2[6],data3[6],data4[6];
-//		sprintf(data,"%d\n\r", x);
-//		SysCtlDelay(10000);
-//		UARTSend(data,3);
-//		SysCtlDelay(SysCtlClockGet()/1000);
-//		sprintf(data,"%d\n\r", y);
-//		SysCtlDelay(10000);
-//		UARTSend(data,3);
-//		SysCtlDelay(SysCtlClockGet()/1000);
-//		sprintf(data,"%d\n\r", z);
-//		SysCtlDelay(10000);
-//		UARTSend(data,3);
-//		SysCtlDelay(SysCtlClockGet()/1000);
-		//SysCtlDelay(10000);
-		//sprintf(data,"%d\n\r", kokopter.motor1_speed);
 
 		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&acc_g_filtered[0], 4);
