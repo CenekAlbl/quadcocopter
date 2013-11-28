@@ -1,0 +1,1 @@
+"./uart.obj" "./startup_ccs.obj" "./pwm.obj" "./main.obj" "./imu.obj" "./I2C.obj" -l"libc.a" -l"C:\StellarisWare\driverlib\ccs-cm4f\Debug\driverlib-cm4f.lib" "../lm4f120h5qr.cmd" 
