@@ -51,9 +51,9 @@ float err_sum_roll=0, last_input_roll=0;
 float I_term_pitch=0,I_term_roll=0;
 
 //inner loop constants
-float kp1=0.1, ki1=0.1, kd1=0;
+float kp1=0.1, ki1=0.02, kd1=0;
 //outer loop constants
-float kp2=0.1, ki2=0, kd2=0.05;
+float kp2=0.1, ki2=0.01, kd2=0.05;
 
 float PID_output_max = 7;
 
@@ -150,6 +150,18 @@ process_command(){
 	case 2:
 		kd2=(*(float *)(command+1))/sample_time_in_sec;
 	break;
+	case 100:
+		{
+		float ki_send=ki2/sample_time_in_sec;
+		float kd_send=kd2*sample_time_in_sec;
+		UARTSend((unsigned char *)&kp2, 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&ki_send, 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&kd_send, 4);
+		SysCtlDelay(10000);
+		break;
+		}
 	}
 	buff_id=0;
 
@@ -380,10 +392,10 @@ void Systick_handler(void)
 			last_input_pitch = angles_LP[1];
 
 
-			kokopter.motor1_speed = kokopter.speed_adjust-kokopter.pitch_adjust;//-kokopter.roll_adjust-kokopter.yaw_adjust;//-kokopter.pitch_adjust+kokopter.yaw_adjust;
-			kokopter.motor2_speed = kokopter.speed_adjust+kokopter.pitch_adjust;//-kokopter.roll_adjust+kokopter.yaw_adjust;//+kokopter.roll_adjust-kokopter.yaw_adjust;
-			kokopter.motor3_speed = kokopter.speed_adjust-kokopter.pitch_adjust;//+kokopter.roll_adjust+kokopter.yaw_adjust;//-kokopter.roll_adjust-kokopter.yaw_adjust;
-			kokopter.motor4_speed = kokopter.speed_adjust+kokopter.pitch_adjust;//+kokopter.roll_adjust-kokopter.yaw_adjust;//+kokopter.pitch_adjust+kokopter.yaw_adjust;
+			kokopter.motor1_speed = kokopter.speed_adjust-kokopter.pitch_adjust-kokopter.roll_adjust-kokopter.yaw_adjust;//-kokopter.pitch_adjust+kokopter.yaw_adjust;
+			kokopter.motor2_speed = kokopter.speed_adjust+kokopter.pitch_adjust-kokopter.roll_adjust+kokopter.yaw_adjust;//+kokopter.roll_adjust-kokopter.yaw_adjust;
+			kokopter.motor3_speed = kokopter.speed_adjust-kokopter.pitch_adjust+kokopter.roll_adjust+kokopter.yaw_adjust;//-kokopter.roll_adjust-kokopter.yaw_adjust;
+			kokopter.motor4_speed = kokopter.speed_adjust+kokopter.pitch_adjust+kokopter.roll_adjust-kokopter.yaw_adjust;//+kokopter.pitch_adjust+kokopter.yaw_adjust;
 
 			if(kokopter.motor1_speed<0)kokopter.motor1_speed=0;
 			else if(kokopter.motor1_speed>100)kokopter.motor1_speed=100;
@@ -634,42 +646,42 @@ int main(void) {
 
 
 //
-
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&acc_g_filtered[0], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&acc_g_filtered[1], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&acc_g_filtered[2], 4);
-		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&gyro_angles[0], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&gyro_angles[1], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&gyro_angles[2], 4);
-
-
-		UARTSend((unsigned char *)&gyro_rates_filtered[0], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&gyro_rates_filtered[1], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
-
-////
-////		UARTSend((unsigned char *)&kokopter.channel2_pulse_width, 4);
-////		SysCtlDelay(1000);
-////		UARTSend((unsigned char *)&kokopter.channel1_pulse_width, 4);
-////		SysCtlDelay(1000);
-////		UARTSend((unsigned char *)&kokopter.channel3_pulse_width, 4);
-////		SysCtlDelay(1000);
-////		UARTSend((unsigned char *)&kokopter.channel4_pulse_width, 4);
 //
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&angles_LP[0], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&angles_LP[1], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&angles_LP[2], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&acc_g_filtered[0], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&acc_g_filtered[1], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&acc_g_filtered[2], 4);
+//		SysCtlDelay(10000);
+////		UARTSend((unsigned char *)&gyro_angles[0], 4);
+////		SysCtlDelay(10000);
+////		UARTSend((unsigned char *)&gyro_angles[1], 4);
+////		SysCtlDelay(10000);
+////		UARTSend((unsigned char *)&gyro_angles[2], 4);
+//
+//
+//		UARTSend((unsigned char *)&gyro_rates_filtered[0], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&gyro_rates_filtered[1], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
+//
+//////
+//////		UARTSend((unsigned char *)&kokopter.channel2_pulse_width, 4);
+//////		SysCtlDelay(1000);
+//////		UARTSend((unsigned char *)&kokopter.channel1_pulse_width, 4);
+//////		SysCtlDelay(1000);
+//////		UARTSend((unsigned char *)&kokopter.channel3_pulse_width, 4);
+//////		SysCtlDelay(1000);
+//////		UARTSend((unsigned char *)&kokopter.channel4_pulse_width, 4);
+////
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&angles_LP[0], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&angles_LP[1], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&angles_LP[2], 4);
 		SysCtlDelay(10000);
 //		UARTSend((unsigned char *)&kp2, 4);
 //		SysCtlDelay(10000);
