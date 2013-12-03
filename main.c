@@ -14,6 +14,8 @@ __error__(char *pcFilename, unsigned long ulLine)
 }
 #endif
 
+#define TESTING
+
 typedef struct{
 	volatile long channel1_start;
 	volatile long channel2_start;
@@ -58,6 +60,7 @@ float kp2=0.1, ki2=0.01, kd2=0.05;
 float PID_output_max = 7;
 
 
+
 uint8_t radio_thrust_prev = 0;
 
 static long motor_set_timer,pwm_frequency;
@@ -72,6 +75,7 @@ long total  =0;
 
 //ACC DATA
 float acc_angle[3];
+float acc_angle_filtered[3];
 float acc_g[3];
 float acc_g_filtered[3];
 float acc_g_last[3] = {0,0,0};
@@ -305,9 +309,15 @@ void Systick_handler(void)
 	read_acc(buffer);
 	acc_get_g_raw(buffer,acc_offset,acc_g);
 	acc_get_g_filtered(acc_g,acc_g_last,0.1,acc_g_filtered);
-	acc_get_angles(acc_g_filtered, acc_angle);
+	acc_get_angles(acc_g_filtered, acc_angle_filtered);
+#ifdef TESTING
+	acc_get_angles(acc_g,acc_angle);
 	acc_angle[0]-=acc_angles_offset[0];
 	acc_angle[1]-=acc_angles_offset[1];
+#endif
+	acc_angle_filtered[0]-=acc_angles_offset[0];
+	acc_angle_filtered[1]-=acc_angles_offset[1];
+
 	read_gyro(buffer);
 	gyro_get_rates(buffer, gyro_offset, gyro_rates);
 
@@ -325,8 +335,8 @@ void Systick_handler(void)
 	read_mag(buffer);
 	get_angles_mag(buffer, mag_offset, mag_gain, angles, mag_angles);
 
-	angles[0] = (angles_LP[0] + gyro_rates[0]/100)*gyro_weight + (acc_angle[1]-90)*(1-gyro_weight);
-	angles[1] = (angles_LP[1] + gyro_rates[1]/100)*gyro_weight + (acc_angle[0]-90)*(1-gyro_weight);
+	angles[0] = (angles_LP[0] + gyro_rates[0]/100)*gyro_weight + (acc_angle_filtered[1]-90)*(1-gyro_weight);
+	angles[1] = (angles_LP[1] + gyro_rates[1]/100)*gyro_weight + (acc_angle_filtered[0]-90)*(1-gyro_weight);
 	angles[2] = (angles_LP[2] + gyro_rates[2]/100)*gyro_weight;// + mag_angles[2]*(1-gyro_weight);
 
 	//Low pass filter this shit
@@ -637,55 +647,59 @@ int main(void) {
 
 	while(1){
 
-//		if(duty_cycle>1) duty_cycle = 0.0;
-		//set_pwm_duty_cycle(2,50,duty_cycle);
-//		duty_cycle+=0.1;
-		long delay = SysCtlClockGet()/60;
+		long delay = SysCtlClockGet()/100;
 		SysCtlDelay(delay);
 
-
-
-//
-//
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&acc_g_filtered[0], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&acc_g_filtered[1], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&acc_g_filtered[2], 4);
-//		SysCtlDelay(10000);
-////		UARTSend((unsigned char *)&gyro_angles[0], 4);
-////		SysCtlDelay(10000);
-////		UARTSend((unsigned char *)&gyro_angles[1], 4);
-////		SysCtlDelay(10000);
-////		UARTSend((unsigned char *)&gyro_angles[2], 4);
-//
-//
-//		UARTSend((unsigned char *)&gyro_rates_filtered[0], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&gyro_rates_filtered[1], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
-//
-//////
-//////		UARTSend((unsigned char *)&kokopter.channel2_pulse_width, 4);
-//////		SysCtlDelay(1000);
-//////		UARTSend((unsigned char *)&kokopter.channel1_pulse_width, 4);
-//////		SysCtlDelay(1000);
-//////		UARTSend((unsigned char *)&kokopter.channel3_pulse_width, 4);
-//////		SysCtlDelay(1000);
-//////		UARTSend((unsigned char *)&kokopter.channel4_pulse_width, 4);
-////
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&angles_LP[0], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&angles_LP[1], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&angles_LP[2], 4);
+#ifdef TESTING
+		//send sync flag
+		uint8_t sync_flag[10] = {255,255,255,255,255};
+		UARTSend((unsigned char *)&sync_flag[0], 5);
 		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&kp2, 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&kd2, 4);
+
+		//sned non-filtered acc angles
+		UARTSend((unsigned char *)&acc_angle[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&acc_angle[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&acc_angle[2], 4);
+		//sned flitered acc angles
+		UARTSend((unsigned char *)&acc_angle_filtered[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&acc_angle_filtered[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&acc_angle_filtered[2], 4);
+		//send filtered gyro rates
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates[2], 4);
+
+
+		UARTSend((unsigned char *)&gyro_rates_filtered[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates_filtered[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
+
+
+		UARTSend((unsigned char *)&angles_LP[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&angles_LP[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&angles_LP[2], 4);
+		SysCtlDelay(10000);
+
+		UARTSend((unsigned char *)&kokopter.pitch_adjust, 4);
+		SysCtlDelay(1000);
+		UARTSend((unsigned char *)&kokopter.roll_adjust, 4);
+		SysCtlDelay(1000);
+		UARTSend((unsigned char *)&kokopter.yaw_adjust, 4);
+		SysCtlDelay(10000);
+
+
+#endif
 
 	};
 
