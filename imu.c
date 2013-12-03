@@ -94,7 +94,7 @@ void gyro_get_rates(uint8_t * buffer, short * gyro_offset, float * rates){
 
 //see http://www.chrobotics.com/library/understanding-euler-angles
 // roll = pitch, pitch = roll from acc!!!!
-void transform_gyro_rates(float * gyro_rates, float * angles){
+void transform_angular_rates(float * gyro_rates, float * gyro_rates_new, float * angles){
 	//if calculated from acc
 //	float roll_rate = gyro_rates[0] + gyro_rates[2]*cos((angles[1]-90)/ 57.3)*tan((angles[0]-90)/ 57.3)+gyro_rates[1]*sin((angles[1]-90)/ 57.3)*tan((angles[0]-90)/ 57.3);
 //	float pitch_rate = gyro_rates[1]*cos((angles[1]-90)/ 57.3)-gyro_rates[2]*sin((angles[1]-90)/ 57.3);
@@ -103,9 +103,9 @@ void transform_gyro_rates(float * gyro_rates, float * angles){
 	float roll_rate = gyro_rates[0] + gyro_rates[2]*cos((angles[0])/ 57.3)*tan((angles[1])/ 57.3)+gyro_rates[1]*sin((angles[0])/ 57.3)*tan((angles[1])/ 57.3);
 	float pitch_rate = gyro_rates[1]*cos((angles[0])/ 57.3)-gyro_rates[2]*sin((angles[0])/ 57.3);
 	float yaw_rate = gyro_rates[1]*sin((angles[0])/ 57.3)/cos((angles[1])/ 57.3)+gyro_rates[2]*cos((angles[0])/ 57.3)/cos((angles[1])/ 57.3);
-	gyro_rates[0] = roll_rate;
-	gyro_rates[1] = pitch_rate;
-	gyro_rates[2] = yaw_rate;
+	gyro_rates_new[0] = roll_rate;
+	gyro_rates_new[1] = pitch_rate;
+	gyro_rates_new[2] = yaw_rate;
 }
 
 void calibrate_gyro(short * gyro_offset){

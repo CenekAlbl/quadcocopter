@@ -96,7 +96,7 @@ void acc_get_g_raw(uint8_t * buffer, short * acc_offset, float * acc_g);
 void acc_get_g_filtered(float * acc_g_raw, float * last_acc_g_raw, float beta, float * acc_g_filtered);
 void acc_get_angles(float * acc_g, float * angles);
 void gyro_get_rates(uint8_t * buffer, short * gyro_offset, float * rates);
-void transform_gyro_rates(float * gyro_rates, float * angles);
+void transform_angular_rates(float * gyro_rates, float * gyro_rates_new, float * angles);
 void calibrate_gyro(short * gyro_offset);
 
 void calibrate_mag(float * mag_gain);

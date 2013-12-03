@@ -16,6 +16,10 @@ __error__(char *pcFilename, unsigned long ulLine)
 
 #define TESTING
 
+//#define PID_ANGLE
+//#define PID_RATE
+#define PID_RATE_AND_ANGLE
+
 typedef struct{
 	volatile long channel1_start;
 	volatile long channel2_start;
@@ -41,23 +45,56 @@ typedef struct{
 	float roll_adjust;
 	float pitch_adjust;
 	float yaw_adjust;
+#if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
+	float roll_rate_adjust;
+	float pitch_rate_adjust;
+	float yaw_rate_adjust;
+#endif
+
 	uint8_t ready;
 	uint8_t engines_on;
 
 }Kokopter;
 
-float set_point_roll = 0;
-float set_point_pitch = 0;
-float err_sum_pitch=0, last_input_pitch=0;
-float err_sum_roll=0, last_input_roll=0;
-float I_term_pitch=0,I_term_roll=0;
 
-//inner loop constants
-float kp1=0.1, ki1=0.02, kd1=0;
-//outer loop constants
-float kp2=0.1, ki2=0.01, kd2=0.05;
+
+
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+	float I_term_pitch=0,I_term_roll=0;
+	float error_pitch;
+	float error_roll;
+	float d_input_pitch =0;
+	float d_input_roll =0;
+	float last_input_pitch=0;
+	float last_input_roll=0;
+	float err_sum_pitch=0;
+	float err_sum_roll=0;
+	float set_point_roll = 0;
+	float set_point_pitch = 0;
+#endif
+
+#if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
+	float I_term_pitch_rate=0,I_term_roll_rate=0;
+	float error_pitch_rate;
+	float error_roll_rate;
+	float d_input_pitch_rate=0;
+	float d_input_roll_rate=0;
+	float last_input_pitch_rate=0;
+	float last_input_roll_rate=0;
+#endif
+
+	//inner loop constants
+#if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
+	float kp1=0.07, ki1=0, kd1=0;
+#endif
+
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+	//outer loop constants
+	float kp2=10, ki2=0, kd2=0;
+#endif
 
 float PID_output_max = 7;
+float PID_output_rate_max = 100;
 
 
 
@@ -82,7 +119,8 @@ float acc_g_last[3] = {0,0,0};
 short acc_offset[3] = {0, 0, 0};
 float acc_angles_offset[3] = {4.5,0,0};
 //GYRO DATA
-float gyro_rates[3];
+float gyro_rates_body[3];
+float gyro_rates_euler[3];
 float gyro_rates_filtered[3];
 float gyro_angles[3] = {0,0,0};
 
@@ -91,11 +129,10 @@ short mag_offset[3] = {(MAG0MAX + MAG0MIN) / 2, (MAG1MAX + MAG1MIN) / 2, (MAG2MA
 float mag_gain[3];
 float mag_angles[3];
 
-float d_input_pitch =0;
-float d_input_roll =0;
+
+
 float sample_rate = 100; //sample rate in hz
-float error_pitch;
-float error_roll;
+
 
 float gyro_weight = 0.98;
 
@@ -120,12 +157,13 @@ void set_PID_constants(float P, float I, float D, int loop){
 		kd1 = D/sample_time_in_sec;
 
 	break;
-
+#if defined(PID_ANGLE) || defined (PID_RATE_AND_ANGLE)
 	case 2:
 		kp2 = P;
 		ki2 = I*sample_time_in_sec;
 		kd2 = D/sample_time_in_sec;
 	break;
+#endif
 
 	}
 
@@ -144,18 +182,43 @@ process_command(){
 	switch(command[0]){
 	// change outer loop P
 	case 0:
+#if defined( PID_RATE) || defined(PID_RATE_AND_ANGLE)
+		kp1=*(float *)(command+1);
+#endif
+#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		kp2=*(float *)(command+1);
+#endif
 	break;
 	// change outer loop I
 	case 1:
+#if defined( PID_RATE) || defined(PID_RATE_AND_ANGLE)
+		ki1=(*(float *)(command+1))*sample_time_in_sec;
+#endif
+#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		ki2=(*(float *)(command+1))*sample_time_in_sec;
+#endif
 	break;
 	// change outer loop D
 	case 2:
+#if defined( PID_RATE) || defined(PID_RATE_AND_ANGLE)
+		kd1=(*(float *)(command+1))/sample_time_in_sec;
+#endif
+#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		kd2=(*(float *)(command+1))/sample_time_in_sec;
+#endif
 	break;
 	case 100:
 		{
+#ifdef PID_RATE
+		float ki_send=ki1/sample_time_in_sec;
+		float kd_send=kd1*sample_time_in_sec;
+		UARTSend((unsigned char *)&kp1, 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&ki_send, 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&kd_send, 4);
+		SysCtlDelay(10000);
+#elif defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		float ki_send=ki2/sample_time_in_sec;
 		float kd_send=kd2*sample_time_in_sec;
 		UARTSend((unsigned char *)&kp2, 4);
@@ -164,6 +227,8 @@ process_command(){
 		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&kd_send, 4);
 		SysCtlDelay(10000);
+#endif
+
 		break;
 		}
 	}
@@ -284,25 +349,63 @@ void Systick_handler(void)
 	min = 152000;
 	kokopter.speed_adjust = (min-kokopter.channel2_pulse_width)/range*100;
 
-	//ROLL
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+	//YAW
 	range = 40000;
 	mid = 120000;
 	sensitivity = 40;
 	kokopter.yaw_adjust = (kokopter.channel3_pulse_width-mid)/range*sensitivity;
+#endif
 
+#if defined(PID_RATE)
+	//YAW RATE
+	range = 40000;
+	mid = 120000;
+	sensitivity = 40;
+	kokopter.yaw_rate_adjust = (kokopter.channel3_pulse_width-mid)/range*sensitivity;
+#endif
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 	//PITCH
 	range = 48000;
 	mid = 120000;
 	sensitivity = 40;
 	kokopter.pitch_adjust = (kokopter.channel1_pulse_width-mid)/range*sensitivity;
-
-
-	//YAW
+#endif
+#if defined(PID_RATE)
+	//PITCH RATE
+	range = 48000;
+	mid = 120000;
+	sensitivity = 40;
+	kokopter.pitch_rate_adjust = (kokopter.channel1_pulse_width-mid)/range*sensitivity;
+#endif
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+	//ROLL
 	range = 32000;
 	mid = 120000;
 	sensitivity = 40;
 	kokopter.roll_adjust = (kokopter.channel4_pulse_width-mid)/range*sensitivity;
+#endif
 
+#if defined(PID_RATE)
+	//ROLL RATE
+	range = 32000;
+	mid = 120000;
+	sensitivity = 40;
+	kokopter.roll_rate_adjust = (kokopter.channel4_pulse_width-mid)/range*sensitivity;
+#endif
+
+#ifdef TESTING
+	#if defined(PID_RATE)
+		kokopter.pitch_rate_adjust = 0;
+		kokopter.roll_rate_adjust = 0;
+		kokopter.yaw_rate_adjust = 0;
+	#endif
+	#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+		kokopter.pitch_adjust = 0;
+		kokopter.roll_adjust = 0;
+		kokopter.yaw_adjust = 0;
+	#endif
+#endif
 
 	if(buff_id>=5)process_command();
 
@@ -319,31 +422,30 @@ void Systick_handler(void)
 	acc_angle_filtered[1]-=acc_angles_offset[1];
 
 	read_gyro(buffer);
-	gyro_get_rates(buffer, gyro_offset, gyro_rates);
+	gyro_get_rates(buffer, gyro_offset, gyro_rates_body);
 
-	transform_gyro_rates(gyro_rates, angles_LP);
+#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+	transform_angular_rates(gyro_rates_body,gyro_rates_euler, angles_LP);
+
 	int i;
 	for(i=0;i<3;i++){
-			gyro_rates_filtered[i] = gyro_rates[i]*tilt_roll_beta + (1-tilt_roll_beta)*gyro_rates_filtered[i];
-	}
-
-
-	for(i=0;i<3;i++){
-		gyro_angles[i] += gyro_rates[i]/100;
+			gyro_rates_filtered[i] = gyro_rates_euler[i]*tilt_roll_beta + (1-tilt_roll_beta)*gyro_rates_filtered[i];
 	}
 
 	read_mag(buffer);
 	get_angles_mag(buffer, mag_offset, mag_gain, angles, mag_angles);
 
-	angles[0] = (angles_LP[0] + gyro_rates[0]/100)*gyro_weight + (acc_angle_filtered[1]-90)*(1-gyro_weight);
-	angles[1] = (angles_LP[1] + gyro_rates[1]/100)*gyro_weight + (acc_angle_filtered[0]-90)*(1-gyro_weight);
-	angles[2] = (angles_LP[2] + gyro_rates[2]/100)*gyro_weight;// + mag_angles[2]*(1-gyro_weight);
+	angles[0] = (angles_LP[0] + gyro_rates_euler[0]/100)*gyro_weight + (acc_angle_filtered[1]-90)*(1-gyro_weight);
+	angles[1] = (angles_LP[1] + gyro_rates_euler[1]/100)*gyro_weight + (acc_angle_filtered[0]-90)*(1-gyro_weight);
+	angles[2] = (angles_LP[2] + gyro_rates_euler[2]/100)*gyro_weight;// + mag_angles[2]*(1-gyro_weight);
 
 	//Low pass filter this shit
 	for(i=0;i<3;i++){
 		angles_LP[i] = angles[i]*tilt_roll_beta + (1-tilt_roll_beta)*last_angles[i];
 		last_angles[i]=angles[i];
 	}
+#endif
+
 
 	if(kokopter.ready){
 		GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_3,8);
@@ -356,10 +458,25 @@ void Systick_handler(void)
 			kokopter.speed_adjust-=20;
 		}
 
+#ifdef PID_ANGLE
 		error_roll = kokopter.roll_adjust - angles_LP[0];
 	    error_pitch = kokopter.pitch_adjust - angles_LP[1];
 	    d_input_roll = (angles_LP[0] - last_input_roll);
 	    d_input_pitch = (angles_LP[1] - last_input_pitch);
+#endif
+
+#ifdef PID_RATE
+	    error_roll_rate = kokopter.roll_rate_adjust - gyro_rates_body[0];
+	    error_pitch_rate = kokopter.pitch_rate_adjust - gyro_rates_body[1];
+#endif
+
+#ifdef PID_RATE_AND_ANGLE
+	    error_roll = kokopter.roll_adjust - angles_LP[0];
+		error_pitch = kokopter.pitch_adjust - angles_LP[1];
+		d_input_roll = (angles_LP[0] - last_input_roll);
+		d_input_pitch = (angles_LP[1] - last_input_pitch);
+
+#endif
 
 		if(kokopter.engines_on){
 
@@ -367,7 +484,7 @@ void Systick_handler(void)
 		   /*Compute all the working error variables*/
 
 
-
+#ifdef PID_ANGLE
 
 		   I_term_roll += ki2*error_roll;
 		   I_term_pitch += ki2*error_pitch;
@@ -387,26 +504,123 @@ void Systick_handler(void)
 
 		   /*Compute PID Output*/
 		   kokopter.roll_adjust = kp2 * error_roll + I_term_roll + kd2 * d_input_roll;
-		   kokopter.pitch_adjust = kp2 * error_pitch + I_term_pitch - kd2 * d_input_pitch;
-
-		   //kokopter.pitch_adjust = kd * dErr;
-
+		   kokopter.pitch_adjust = kp2 * error_pitch + I_term_pitch + kd2 * d_input_pitch;
+		   //trim to max values
 		   if(kokopter.pitch_adjust>PID_output_max)kokopter.pitch_adjust=PID_output_max;
 		   else if(kokopter.pitch_adjust<-PID_output_max)kokopter.pitch_adjust=-PID_output_max;
-
 		   if(kokopter.roll_adjust>PID_output_max)kokopter.roll_adjust=PID_output_max;
 		   if(kokopter.roll_adjust<-PID_output_max)kokopter.roll_adjust=-PID_output_max;
+#endif
+#ifdef PID_RATE
+		   I_term_roll_rate+=ki1*error_roll_rate;
+		   I_term_pitch_rate+=ki1*error_pitch_rate;
 
+		   if(I_term_pitch_rate>PID_output_max){
+			   I_term_pitch_rate = PID_output_max;
+		   }else if(I_term_pitch_rate<-PID_output_max){
+				I_term_pitch_rate = -PID_output_max;
+		   }
+
+		   if(I_term_roll_rate>PID_output_max){
+			   I_term_roll_rate = PID_output_max;
+		   }else if(I_term_roll_rate<-PID_output_max){
+			   I_term_roll_rate = -PID_output_max;
+		   }
+
+		   /*Compute PID Output*/
+		   kokopter.roll_rate_adjust = kp1 * error_roll_rate + I_term_roll_rate + kd1 * d_input_roll_rate;
+		   kokopter.pitch_rate_adjust = kp1 * error_pitch_rate + I_term_pitch_rate + kd1 * d_input_pitch_rate;
+
+		   if(kokopter.pitch_rate_adjust>PID_output_max)kokopter.pitch_rate_adjust=PID_output_max;
+		   else if(kokopter.pitch_rate_adjust<-PID_output_max)kokopter.pitch_rate_adjust=-PID_output_max;
+
+		   if(kokopter.roll_rate_adjust>PID_output_max)kokopter.roll_rate_adjust=PID_output_max;
+		   if(kokopter.roll_rate_adjust<-PID_output_max)kokopter.roll_rate_adjust=-PID_output_max;
+
+#endif
+#ifdef PID_RATE_AND_ANGLE
+
+		   //first the outer control loop
+		   //driven by the reference angle and measured angle from both gyros and acc
+		   //provides angular velocity output for the inner loop
+		   I_term_roll += ki2*error_roll;
+		   I_term_pitch += ki2*error_pitch;
+
+		   if(I_term_pitch>PID_output_max){
+			   I_term_pitch = PID_output_max;
+		   }else if(I_term_pitch<-PID_output_max){
+			   I_term_pitch = -PID_output_max;
+		   }
+
+		   if(I_term_roll>PID_output_max){
+			   I_term_roll = PID_output_max;
+		   }else if(I_term_roll<-PID_output_max){
+			   I_term_roll = -PID_output_max;
+		   }
+
+
+		   /*Compute PID Output*/
+		   kokopter.roll_adjust = kp2 * error_roll + I_term_roll + kd2 * d_input_roll;
+		   kokopter.pitch_adjust = kp2 * error_pitch + I_term_pitch + kd2 * d_input_pitch;
+		   //trim to max values
+		   if(kokopter.pitch_adjust>PID_output_rate_max)kokopter.pitch_adjust=PID_output_rate_max;
+		   else if(kokopter.pitch_adjust<-PID_output_rate_max-30)kokopter.pitch_adjust=-PID_output_rate_max;
+		   if(kokopter.roll_adjust>PID_output_rate_max)kokopter.roll_adjust=PID_output_rate_max;
+		   if(kokopter.roll_adjust<-PID_output_rate_max)kokopter.roll_adjust=-PID_output_rate_max;
+
+		   //now the inner loop
+		   //driven by the desired angular rate which is the output of outer loop and the measured angular rate from gyros
+		   error_roll_rate = kokopter.roll_adjust - gyro_rates_euler[0];
+		   error_pitch_rate = kokopter.pitch_adjust - gyro_rates_euler[1];
+
+		   I_term_roll_rate+=ki1*error_roll_rate;
+		   I_term_pitch_rate+=ki1*error_pitch_rate;
+
+		   if(I_term_pitch_rate>PID_output_max){
+			   I_term_pitch_rate = PID_output_max;
+		   }else if(I_term_pitch_rate<-PID_output_max){
+				I_term_pitch_rate = -PID_output_max;
+		   }
+
+		   if(I_term_roll_rate>PID_output_max){
+			   I_term_roll_rate = PID_output_max;
+		   }else if(I_term_roll_rate<-PID_output_max){
+			   I_term_roll_rate = -PID_output_max;
+		   }
+
+		   /*Compute PID Output*/
+		   kokopter.roll_rate_adjust = kp1 * error_roll_rate + I_term_roll_rate + kd1 * d_input_roll_rate;
+		   kokopter.pitch_rate_adjust = kp1 * error_pitch_rate + I_term_pitch_rate + kd1 * d_input_pitch_rate;
+
+		   if(kokopter.pitch_rate_adjust>PID_output_max)kokopter.pitch_rate_adjust=PID_output_max;
+		   else if(kokopter.pitch_rate_adjust<-PID_output_max)kokopter.pitch_rate_adjust=-PID_output_max;
+
+		   if(kokopter.roll_rate_adjust>PID_output_max)kokopter.roll_rate_adjust=PID_output_max;
+		   if(kokopter.roll_rate_adjust<-PID_output_max)kokopter.roll_rate_adjust=-PID_output_max;
+
+#endif
+
+
+
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		   /*Remember some variables for next time*/
 			last_input_roll = angles_LP[0];
 			last_input_pitch = angles_LP[1];
-
-
-			kokopter.motor1_speed = kokopter.speed_adjust-kokopter.pitch_adjust-kokopter.roll_adjust-kokopter.yaw_adjust;//-kokopter.pitch_adjust+kokopter.yaw_adjust;
-			kokopter.motor2_speed = kokopter.speed_adjust+kokopter.pitch_adjust-kokopter.roll_adjust+kokopter.yaw_adjust;//+kokopter.roll_adjust-kokopter.yaw_adjust;
-			kokopter.motor3_speed = kokopter.speed_adjust-kokopter.pitch_adjust+kokopter.roll_adjust+kokopter.yaw_adjust;//-kokopter.roll_adjust-kokopter.yaw_adjust;
-			kokopter.motor4_speed = kokopter.speed_adjust+kokopter.pitch_adjust+kokopter.roll_adjust-kokopter.yaw_adjust;//+kokopter.pitch_adjust+kokopter.yaw_adjust;
-
+#endif
+#ifdef PID_RATE
+			last_input_roll_rate = gyro_rates_body[0];
+			last_input_pitch_rate = gyro_rates_body[1];
+			kokopter.motor1_speed = kokopter.speed_adjust-kokopter.pitch_rate_adjust-kokopter.roll_rate_adjust-kokopter.yaw_rate_adjust;
+			kokopter.motor2_speed = kokopter.speed_adjust+kokopter.pitch_rate_adjust-kokopter.roll_rate_adjust+kokopter.yaw_rate_adjust;
+			kokopter.motor3_speed = kokopter.speed_adjust-kokopter.pitch_rate_adjust+kokopter.roll_rate_adjust+kokopter.yaw_rate_adjust;
+			kokopter.motor4_speed = kokopter.speed_adjust+kokopter.pitch_rate_adjust+kokopter.roll_rate_adjust-kokopter.yaw_rate_adjust;
+#endif
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+			kokopter.motor1_speed = kokopter.speed_adjust-kokopter.pitch_rate_adjust-kokopter.roll_rate_adjust-kokopter.yaw_rate_adjust;
+			kokopter.motor2_speed = kokopter.speed_adjust+kokopter.pitch_rate_adjust-kokopter.roll_rate_adjust+kokopter.yaw_rate_adjust;
+			kokopter.motor3_speed = kokopter.speed_adjust-kokopter.pitch_rate_adjust+kokopter.roll_rate_adjust+kokopter.yaw_rate_adjust;
+			kokopter.motor4_speed = kokopter.speed_adjust+kokopter.pitch_rate_adjust+kokopter.roll_rate_adjust-kokopter.yaw_rate_adjust;
+#endif
 			if(kokopter.motor1_speed<0)kokopter.motor1_speed=0;
 			else if(kokopter.motor1_speed>100)kokopter.motor1_speed=100;
 			if(kokopter.motor4_speed<0)kokopter.motor4_speed=0;
@@ -425,18 +639,31 @@ void Systick_handler(void)
 			set_motor_speed(0, 0);
 			set_motor_speed(3, 0);
 			set_motor_speed(1, 0);
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 			I_term_pitch = 0;
 			I_term_roll = 0;
-
-
+#endif
+#if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
+			I_term_pitch_rate = 0;
+			I_term_roll_rate = 0;
+#endif
 
 		}
+
 	}else{
 		GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_3,0);
 			set_motor_speed(2, 0);
 			set_motor_speed(0, 0);
 			set_motor_speed(3, 0);
 			set_motor_speed(1, 0);
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+			I_term_pitch = 0;
+			I_term_roll = 0;
+#endif
+#if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
+			I_term_pitch_rate = 0;
+			I_term_roll_rate = 0;
+#endif
 	}
 
 
@@ -471,9 +698,10 @@ int main(void) {
 	kokopter.ready=0;
 	buff_id=0;
 
-
+#if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 	set_PID_constants(kp2,ki2,kd2,2);
-
+#endif
+	set_PID_constants(kp1,ki1,kd1,1);
 	pwm_frequency = 100;
 	motor_set_timer =0;
 
@@ -669,13 +897,21 @@ int main(void) {
 		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&acc_angle_filtered[2], 4);
 		//send filtered gyro rates
+#ifdef PID_RATE
 		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&gyro_rates[0], 4);
+		UARTSend((unsigned char *)&gyro_rates_body[0], 4);
 		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&gyro_rates[1], 4);
+		UARTSend((unsigned char *)&gyro_rates_body[1], 4);
 		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&gyro_rates[2], 4);
-
+		UARTSend((unsigned char *)&gyro_rates_body[2], 4);
+#elif defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates_euler[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates_euler[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&gyro_rates_euler[2], 4);
+#endif
 
 		UARTSend((unsigned char *)&gyro_rates_filtered[0], 4);
 		SysCtlDelay(10000);
@@ -684,19 +920,39 @@ int main(void) {
 		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
 
 
-		UARTSend((unsigned char *)&angles_LP[0], 4);
+//		UARTSend((unsigned char *)&angles_LP[0], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&angles_LP[1], 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&angles_LP[2], 4);
+//		SysCtlDelay(10000);
+#ifdef PID_RATE
+		UARTSend((unsigned char *)&kokopter.pitch_rate_adjust, 4);
+		SysCtlDelay(1000);
+		UARTSend((unsigned char *)&kokopter.roll_rate_adjust, 4);
+		SysCtlDelay(1000);
+		UARTSend((unsigned char *)&kokopter.yaw_rate_adjust, 4);
 		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&angles_LP[1], 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&angles_LP[2], 4);
-		SysCtlDelay(10000);
-
+#elif defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 		UARTSend((unsigned char *)&kokopter.pitch_adjust, 4);
-		SysCtlDelay(1000);
+		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&kokopter.roll_adjust, 4);
-		SysCtlDelay(1000);
+		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&kokopter.yaw_adjust, 4);
 		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&kokopter.pitch_rate_adjust, 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&kokopter.roll_rate_adjust, 4);
+		SysCtlDelay(1000);
+		UARTSend((unsigned char *)&kokopter.yaw_rate_adjust, 4);
+		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&kokopter.motor1_speed, 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&kokopter.motor2_speed, 4);
+//		SysCtlDelay(1000);
+//		UARTSend((unsigned char *)&kokopter.motor3_speed, 4);
+//		SysCtlDelay(10000);
+#endif
 
 
 #endif
