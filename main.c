@@ -85,12 +85,12 @@ typedef struct{
 
 	//inner loop constants
 #if defined(PID_RATE) || defined(PID_RATE_AND_ANGLE)
-	float kp1=0.07, ki1=0, kd1=0;
+	float kp1=0.05, ki1=0, kd1=0;
 #endif
 
 #if defined(PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
 	//outer loop constants
-	float kp2=10, ki2=0, kd2=0;
+	float kp2=5, ki2=0, kd2=0;
 #endif
 
 float PID_output_max = 7;
@@ -401,9 +401,9 @@ void Systick_handler(void)
 		kokopter.yaw_rate_adjust = 0;
 	#endif
 	#if defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
-		kokopter.pitch_adjust = 0;
-		kokopter.roll_adjust = 0;
-		kokopter.yaw_adjust = 0;
+		//kokopter.pitch_adjust = 0;
+		//kokopter.roll_adjust = 0;
+		//kokopter.yaw_adjust = 0;
 	#endif
 #endif
 
@@ -429,14 +429,14 @@ void Systick_handler(void)
 
 	int i;
 	for(i=0;i<3;i++){
-			gyro_rates_filtered[i] = gyro_rates_euler[i]*tilt_roll_beta + (1-tilt_roll_beta)*gyro_rates_filtered[i];
+			gyro_rates_filtered[i] = gyro_rates_euler[i]*0.3 + (1-0.3)*gyro_rates_filtered[i];
 	}
 
 	read_mag(buffer);
 	get_angles_mag(buffer, mag_offset, mag_gain, angles, mag_angles);
 
-	angles[0] = (angles_LP[0] + gyro_rates_euler[0]/100)*gyro_weight + (acc_angle_filtered[1]-90)*(1-gyro_weight);
-	angles[1] = (angles_LP[1] + gyro_rates_euler[1]/100)*gyro_weight + (acc_angle_filtered[0]-90)*(1-gyro_weight);
+	angles[0] = (angles_LP[0] + gyro_rates_euler[0]/100)*gyro_weight + (acc_angle_filtered[1])*(1-gyro_weight);
+	angles[1] = (angles_LP[1] + gyro_rates_euler[1]/100)*gyro_weight + (acc_angle_filtered[0])*(1-gyro_weight);
 	angles[2] = (angles_LP[2] + gyro_rates_euler[2]/100)*gyro_weight;// + mag_angles[2]*(1-gyro_weight);
 
 	//Low pass filter this shit
@@ -920,12 +920,12 @@ int main(void) {
 		UARTSend((unsigned char *)&gyro_rates_filtered[2], 4);
 
 
-//		UARTSend((unsigned char *)&angles_LP[0], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&angles_LP[1], 4);
-//		SysCtlDelay(10000);
-//		UARTSend((unsigned char *)&angles_LP[2], 4);
-//		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&angles_LP[0], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&angles_LP[1], 4);
+		SysCtlDelay(10000);
+		UARTSend((unsigned char *)&angles_LP[2], 4);
+		SysCtlDelay(10000);
 #ifdef PID_RATE
 		UARTSend((unsigned char *)&kokopter.pitch_rate_adjust, 4);
 		SysCtlDelay(1000);
@@ -934,11 +934,11 @@ int main(void) {
 		UARTSend((unsigned char *)&kokopter.yaw_rate_adjust, 4);
 		SysCtlDelay(10000);
 #elif defined( PID_ANGLE) || defined(PID_RATE_AND_ANGLE)
-		UARTSend((unsigned char *)&kokopter.pitch_adjust, 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&kokopter.roll_adjust, 4);
-		SysCtlDelay(10000);
-		UARTSend((unsigned char *)&kokopter.yaw_adjust, 4);
+//		UARTSend((unsigned char *)&kokopter.pitch_adjust, 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&kokopter.roll_adjust, 4);
+//		SysCtlDelay(10000);
+//		UARTSend((unsigned char *)&kokopter.yaw_adjust, 4);
 		SysCtlDelay(10000);
 		UARTSend((unsigned char *)&kokopter.pitch_rate_adjust, 4);
 		SysCtlDelay(10000);

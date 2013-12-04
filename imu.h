@@ -15,8 +15,8 @@
 //
 #define ITG3205_ADDR 0x68    // The address of ITG3205
 #define ITG3205_X_ADDR 0x1D  // Start address for x-axis
-#define SCALING_FACTOR 14.375     // Scaling factor - used when converting to angle
-
+//#define SCALING_FACTOR 14.375     // Scaling factor - used when converting to angle
+#define SCALING_FACTOR 10
 // Accelerometer
 //
 #define ADXL345_ADDR (0x53)  // The adress of ADXL345

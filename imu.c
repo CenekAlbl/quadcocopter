@@ -68,13 +68,26 @@ void acc_get_angles(float * acc_g, float * angles){
 	// WARNING - THIS LIMITS THE UPDATE OF ACC ANGLE TO SMALL G's
 	if (g < 1.3 && g > 0.7)
 	{
-		for (i = 0; i<3; i++)
-		{
-			//angles[i] = acc_g[i];
-			angles[i] = acos(acc_g[i]/g)*57.3;
-			//angles[i] = acos(acc_g[i] / g) * 57.3;
-		}
+//		for (i = 0; i<3; i++)
+//		{
+//			//angles[i] = acc_g[i];
+//			angles[i] = acos(acc_g[i]/g)*57.3;
+//			//angles[i] = acos(acc_g[i] / g) * 57.3;
+//		}
+		 angles[0] =  -(atan(acc_g[0]/acc_g[2]))*57.3;
+		 angles[1] =  -(1/g*asin(acc_g[1]))*57.3;
+
 	}
+
+//	  EUL_ACC(1,i) =  -(atan(ACC_short(i,1)/ACC_short(i,3)));
+//	    EUL_ACC(2,i) =  -real((asin(ACC_short(i,2))));
+//FROM SIMI
+//
+//	    EUL2_ACC(1,i) = -atan2(-ACC_short(i,1) , sqrt( ACC_short(i,2)^2 + ACC_short(i,3)^2 ));
+//	    EUL2_ACC(2,i) = -atan2(ACC_short(i,2), -ACC_short(i,3));
+//	 EUL_ACC(1,i) =  -(atan(ACC_short(i,1)/ACC_short(i,3)));
+//	    EUL_ACC(2,i) =  -real((1/g*asin(ACC_short(i,2))));
+
 }
 
 void gyro_get_rates(uint8_t * buffer, short * gyro_offset, float * rates){
