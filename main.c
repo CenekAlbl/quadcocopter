@@ -15,6 +15,7 @@ __error__(char *pcFilename, unsigned long ulLine)
 #endif
 
 #define TESTING
+#define REALTIME_READOUT
 
 //#define PID_ANGLE
 //#define PID_RATE
@@ -446,6 +447,12 @@ void Systick_handler(void)
 	}
 #endif
 
+#ifdef REALTIME_READOUT
+	UARTSend((unsigned char *)&acc_angle[0], 4);
+	SysCtlDelay(1000);
+	UARTSend((unsigned char *)&gyro_rates_body[0], 4);
+	SysCtlDelay(1000);
+#endif
 
 	if(kokopter.ready){
 		GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_3,8);
@@ -879,6 +886,7 @@ int main(void) {
 		SysCtlDelay(delay);
 
 #ifdef TESTING
+#ifndef REALTIME_READOUT
 		//send sync flag
 		uint8_t sync_flag[10] = {255,255,255,255,255};
 		UARTSend((unsigned char *)&sync_flag[0], 5);
@@ -955,6 +963,7 @@ int main(void) {
 #endif
 
 
+#endif
 #endif
 
 	};

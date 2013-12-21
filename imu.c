@@ -74,8 +74,12 @@ void acc_get_angles(float * acc_g, float * angles){
 //			angles[i] = acos(acc_g[i]/g)*57.3;
 //			//angles[i] = acos(acc_g[i] / g) * 57.3;
 //		}
-		 angles[0] =  -(atan(acc_g[0]/acc_g[2]))*57.3;
-		 angles[1] =  -(1/g*asin(acc_g[1]))*57.3;
+		if(acc_g[2]!=0){
+			angles[0] =  -(atan(acc_g[0]/acc_g[2]))*57.3;
+		}
+		 if(acc_g[1]<=1){
+			 angles[1] =  -(1/g*asin(acc_g[1]))*57.3;
+		 }
 
 	}
 
